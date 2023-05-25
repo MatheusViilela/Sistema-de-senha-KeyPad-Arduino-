@@ -1,8 +1,8 @@
-const { SerialPort } = require('serialport')
-const { ReadlineParser } = require('@serialport/parser-readline')
+const { SerialPort } = require('serialport');
+const { ReadlineParser } = require('@serialport/parser-readline');
 const mysql = require('mysql2/promise');
 
-const port = new SerialPort({ path: 'COM4', baudRate: 9600 })
+const port = new SerialPort({ path: 'COM8', baudRate: 9600 });
 const parser = port.pipe(new ReadlineParser({ delimiter: '\n' }));
 
 const dbConfig = {
@@ -11,12 +11,16 @@ const dbConfig = {
   password: '',
   database: 'casa',
 };
+
 console.log("Seja bem vindo ao sistema de controle de acesso! \nDigite sua senha:");
+
 let cadastrarSenha = false; // Variável de controle para indicar se está pronto para cadastrar nova senha
 let novaSenha = ''; // Variável para armazenar a nova senha digitada
+let acessoLiberado = false; // Variável para indicar se o acesso foi liberado
+
+
 
 parser.on('data', async function (data) {
-
   const senhaIndex = data.indexOf('Senha Digitada:');
   const prontoIndex = data.indexOf('Pronto para cadastrar nova senha:');
 
@@ -24,6 +28,7 @@ parser.on('data', async function (data) {
     const senha = data.split(':');
     const numero = senha[1].trim();
     console.log(`Senha digitada: ${numero}`);
+
     if (cadastrarSenha === false) {
       await acesso(numero);
     }
@@ -33,11 +38,11 @@ parser.on('data', async function (data) {
       cadastrarSenha = false;
       await saveDataToDatabase(novaSenha);
     }
-
-  } else if (prontoIndex === 0) {
+  } else if (prontoIndex === 0 && acessoLiberado === true) {
     console.log(data);
     cadastrarSenha = true;
-
+  } else {
+    console.log("Você precisa acessar para cadastrar nova senha");
   }
 });
 
@@ -49,11 +54,11 @@ async function saveDataToDatabase(senha) {
       [senha]
     );
     console.log(`Dados salvos no banco de dados: ${senha}`);
+    cadastrarSenha = null;
   } catch (error) {
     console.error(`Erro ao salvar dados no banco de dados: ${error.message}`);
   }
 }
-
 
 async function acesso(senha) {
   try {
@@ -64,15 +69,28 @@ async function acesso(senha) {
     );
     if (rows.length > 0) {
       console.log('Acesso Liberado');
+      acessoLiberado = true;
+      enviarSinal("-1");
+
     } else {
       console.log('Acesso Negado');
+      acessoLiberado = false;
+      enviarSinal("-2");
     }
   } catch (error) {
     console.error(`Erro ao salvar dados no banco de dados: ${error.message}`);
   }
 }
 
-
+async function enviarSinal(comando) {
+  port.write(comando, (err) => {
+    if (err) {
+      console.error(`Erro ao enviar comando para abrir a porta: ${err.message}`);
+    } else {
+      console.log('Comando enviado');
+    }
+  });
+}
 
 
 port.on('error', function (err) {
