@@ -1,9 +1,8 @@
 const { SerialPort } = require('serialport');
 const { ReadlineParser } = require('@serialport/parser-readline');
 const mysql = require('mysql2/promise');
-
-const port = new SerialPort({ path: 'COM8', baudRate: 9600 });
-const parser = port.pipe(new ReadlineParser({ delimiter: '\n' }));
+const express = require('express');
+const app = express();
 
 const dbConfig = {
   host: '127.0.0.1',
@@ -12,39 +11,26 @@ const dbConfig = {
   database: 'casa',
 };
 
-console.log("Seja bem vindo ao sistema de controle de acesso! \nDigite sua senha:");
+console.log('Seja bem-vindo ao sistema de controle de acesso!\nDigite sua senha:');
 
-let cadastrarSenha = false; // Variável de controle para indicar se está pronto para cadastrar nova senha
-let novaSenha = ''; // Variável para armazenar a nova senha digitada
-let acessoLiberado = false; // Variável para indicar se o acesso foi liberado
+let cadastrarSenha = false;
+let novaSenha = '';
+let acessoLiberado = false;
+let fechandoCortina = false;
 
+function fecharCortina() {
+  enviarSinal('-5');
+}
 
-
-parser.on('data', async function (data) {
-  const senhaIndex = data.indexOf('Senha Digitada:');
-  const prontoIndex = data.indexOf('Pronto para cadastrar nova senha:');
-
-  if (senhaIndex === 0) {
-    const senha = data.split(':');
-    const numero = senha[1].trim();
-    console.log(`Senha digitada: ${numero}`);
-
-    if (cadastrarSenha === false) {
-      await acesso(numero);
+function enviarSinal(comando) {
+  port.write(comando, (err) => {
+    if (err) {
+      console.error(`Erro ao enviar comando para abrir a porta: ${err.message}`);
+    } else {
+      console.log('Comando enviado');
     }
-
-    if (cadastrarSenha === true) {
-      novaSenha = numero;
-      cadastrarSenha = false;
-      await saveDataToDatabase(novaSenha);
-    }
-  } else if (prontoIndex === 0 && acessoLiberado === true) {
-    console.log(data);
-    cadastrarSenha = true;
-  } else {
-    console.log("Você precisa acessar para cadastrar nova senha");
-  }
-});
+  });
+}
 
 async function saveDataToDatabase(senha) {
   try {
@@ -70,28 +56,103 @@ async function acesso(senha) {
     if (rows.length > 0) {
       console.log('Acesso Liberado');
       acessoLiberado = true;
-      enviarSinal("-1");
-
+      enviarSinal('-5');
     } else {
       console.log('Acesso Negado');
       acessoLiberado = false;
-      enviarSinal("-2");
+      enviarSinal('-2');
     }
   } catch (error) {
     console.error(`Erro ao salvar dados no banco de dados: ${error.message}`);
   }
 }
 
-async function enviarSinal(comando) {
-  port.write(comando, (err) => {
-    if (err) {
-      console.error(`Erro ao enviar comando para abrir a porta: ${err.message}`);
-    } else {
-      console.log('Comando enviado');
-    }
-  });
-}
+const port = new SerialPort({ path: 'COM4', baudRate: 9600 });
+const parser = port.pipe(new ReadlineParser({ delimiter: '\n' }));
 
+parser.on('data', async function (data) {
+  console.log('Dados recebidos:', data);
+  const senhaIndex = data.indexOf('Senha Digitada:');
+  const prontoIndex = data.indexOf('Pronto para cadastrar nova senha:');
+
+  if (senhaIndex === 0) {
+    const senha = data.split(':');
+    const numero = senha[1].trim();
+    console.log(`Senha digitada: ${numero}`);
+
+    if (cadastrarSenha === false) {
+      await acesso(numero);
+    }
+
+    if (cadastrarSenha === true) {
+      novaSenha = numero;
+      cadastrarSenha = false;
+      await saveDataToDatabase(novaSenha);
+    }
+  } else if (prontoIndex === 0 && acessoLiberado === true) {
+    console.log(data);
+    cadastrarSenha = true;
+  } else {
+    console.log('Você precisa acessar para cadastrar nova senha');
+  }
+});
+
+app.get('/', (req, res) => {
+  res.send(`
+    <!DOCTYPE html>
+    <html lang="en">
+      <head>
+        <meta charset="UTF-8" />
+        <meta http-equiv="X-UA-Compatible" content="IE=edge" />
+        <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+        <title>Quarto Inteligente</title>
+        <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/semantic-ui@2.5.0/dist/semantic.min.css" />
+        <script src="https://code.jquery.com/jquery-3.1.1.min.js" integrity="sha256-hVVnYaiADRTO2PzUGmuLJr8BLUSjGIZsDYGmIJLv2b8=" crossorigin="anonymous"></script>
+        <script src="https://cdn.jsdelivr.net/npm/semantic-ui@2.5.0/dist/semantic.min.js"></script>
+        <link rel="stylesheet" href="styles.css" />
+      </head>
+      <body>
+        <div class="ui raised very padded text container segment">
+          <h2 class="ui header">Olá! O que você deseja?</h2>
+          <div class="ui compact menu">
+            <a class="item" id="acender-lampada">
+              <i class="lightbulb outline icon"></i>
+              Acender Lâmpada
+            </a>
+            <a class="item">
+              <i class="lightbulb icon"></i>
+              Apagar Lâmpada
+            </a>
+          </div>
+          <br />
+          <br />
+          <div class="ui compact menu">
+            <a class="item">
+              <i class="sun icon"></i>
+              Abrir Cortina
+            </a>
+            <a class="item" href="/fechar-cortina">
+              <i class="moon icon"></i>
+              Fechar Cortina
+            </a>
+
+          </div>
+        </div>
+        
+        <script src="script.js"></script>
+      </body>
+    </html>
+  `);
+});
+
+app.get('/fechar-cortina', (req, res) => {
+  fecharCortina();
+  res.send('Fechando cortina...');
+});
+
+app.listen(3000, () => {
+  console.log('Servidor rodando em http://localhost:3000');
+});
 
 port.on('error', function (err) {
   console.error(`Erro na porta serial: ${err.message}`);
