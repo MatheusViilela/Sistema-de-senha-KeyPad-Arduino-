@@ -4,6 +4,10 @@ const mysql = require('mysql2/promise');
 const express = require('express');
 const app = express();
 
+
+const port = new SerialPort({ path: 'COM8', baudRate: 9600 });
+const parser = port.pipe(new ReadlineParser({ delimiter: '\n' }));
+
 const dbConfig = {
   host: '127.0.0.1',
   user: 'root',
@@ -18,15 +22,14 @@ let novaSenha = '';
 let acessoLiberado = false;
 let fechandoCortina = false;
 
-function fecharCortina() {
-  enviarSinal('-5');
-}
-
 function enviarSinal(comando) {
+  console.log(typeof port);
+
   port.write(comando, (err) => {
     if (err) {
       console.error(`Erro ao enviar comando para abrir a porta: ${err.message}`);
     } else {
+      console.log(comando);
       console.log('Comando enviado');
     }
   });
@@ -56,7 +59,7 @@ async function acesso(senha) {
     if (rows.length > 0) {
       console.log('Acesso Liberado');
       acessoLiberado = true;
-      enviarSinal('-5');
+      enviarSinal('-1');
     } else {
       console.log('Acesso Negado');
       acessoLiberado = false;
@@ -66,9 +69,6 @@ async function acesso(senha) {
     console.error(`Erro ao salvar dados no banco de dados: ${error.message}`);
   }
 }
-
-const port = new SerialPort({ path: 'COM4', baudRate: 9600 });
-const parser = port.pipe(new ReadlineParser({ delimiter: '\n' }));
 
 parser.on('data', async function (data) {
   console.log('Dados recebidos:', data);
@@ -111,6 +111,17 @@ app.get('/', (req, res) => {
         <script src="https://cdn.jsdelivr.net/npm/semantic-ui@2.5.0/dist/semantic.min.js"></script>
         <link rel="stylesheet" href="styles.css" />
       </head>
+      <style>
+      html,
+body {
+    text-align: center !important;
+    align-items: center !important;
+    display: flex !important;
+    margin-left: auto !important;
+    margin-right: auto !important;
+    background-color: rgb(241, 93, 39) !important;
+}
+      </style>
       <body>
         <div class="ui raised very padded text container segment">
           <h2 class="ui header">Olá! O que você deseja?</h2>
@@ -145,12 +156,14 @@ app.get('/', (req, res) => {
   `);
 });
 
-app.get('/fechar-cortina', (req, res) => {
-  fecharCortina();
+app.get('/fechar-cortina', async (req, res) => {
+  console.log("entrei");
+  enviarSinal('-3');
+
   res.send('Fechando cortina...');
 });
 
-app.listen(3000, () => {
+app.listen(5000, () => {
   console.log('Servidor rodando em http://localhost:3000');
 });
 
