@@ -8,7 +8,7 @@ const session = require('express-session');
 
 
 
-const port = new SerialPort({ path: 'COM4', baudRate: 9600 });
+const port = new SerialPort({ path: 'COM8', baudRate: 9600 });
 const parser = port.pipe(new ReadlineParser({ delimiter: '\n' }));
 
 function enviarSinal(comando) {
@@ -145,16 +145,19 @@ body {
     margin-right: auto !important;
     background-color: rgb(241, 93, 39) !important;
 }
+ui{
+  border-radius: 40px !important;
+}
 </style>
       <body>
         <div class="ui raised very padded text container segment">
           <h2 class="ui header">Olá! O que você deseja?</h2>
           <div class="ui compact menu">
-            <a class="item" id="acender-lampada">
+            <a class="item" id="acender-lampada" href="/acender-luz">
               <i class="lightbulb outline icon"></i>
               Acender Lâmpada
             </a>
-            <a class="item">
+            <a class="item" href="/apagar-luz">
               <i class="lightbulb icon"></i>
               Apagar Lâmpada
             </a>
@@ -206,6 +209,14 @@ app.get('/abrir-porta', (req, res) => {
 app.get('/trancar-porta', (req, res) => {
   enviarSinal('-4');
   res.send('<script>alert("Porta Trancada"); window.location.href = "/home";</script>');
+});
+app.get('/acender-luz', (req, res) => {
+  enviarSinal('-5');
+  res.send('<script>alert("Luz Acessa!"); window.location.href = "/home";</script>');
+});
+app.get('/apagar-Luz', (req, res) => {
+  enviarSinal('-6');
+  res.send('<script>alert("Luz apagada!"); window.location.href = "/home";</script>');
 });
 
 

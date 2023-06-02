@@ -1,44 +1,77 @@
 <!DOCTYPE html>
 <html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta http-equiv="X-UA-Compatible" content="IE=edge" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Quarto Inteligente</title>
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/semantic-ui@2.5.0/dist/semantic.min.css" />
+    <script src="https://code.jquery.com/jquery-3.1.1.min.js" integrity="sha256-hVVnYaiADRTO2PzUGmuLJr8BLUSjGIZsDYGmIJLv2b8=" crossorigin="anonymous"></script>
+    <script src="https://cdn.jsdelivr.net/npm/semantic-ui@2.5.0/dist/semantic.min.js"></script>
+    <script src="https://unpkg.com/@phosphor-icons/web"></script>
+    <link rel="stylesheet" href="styles.css" />
+  </head>
+  <style>
+  html,
+body {
+text-align: center !important;
+align-items: center !important;
+display: flex !important;
+margin-left: auto !important;
+margin-right: auto !important;
+background-color: rgb(241, 93, 39) !important;
+}
+ {
 
-<head>
-  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/semantic-ui@2.5.0/dist/semantic.min.css" />
-  <script src="https://code.jquery.com/jquery-3.1.1.min.js"
-    integrity="sha256-hVVnYaiADRTO2PzUGmuLJr8BLUSjGIZsDYGmIJLv2b8=" crossorigin="anonymous"></script>
-  <script src="https://cdn.jsdelivr.net/npm/semantic-ui@2.5.0/dist/semantic.min.js"></script>
-  <meta charset="UTF-8" />
-  <meta http-equiv="X-UA-Compatible" content="IE=edge" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Quarto Inteligente</title>
-  <link rel="stylesheet" href="styles.css" />
-</head>
+}
 
-<body>
-  <div class="ui raised very padded text container segment">
-    <h2 class="ui header">Olá! O que você deseja?</h2>
-    <div class="ui compact menu">
-      <a class="item" id="acender-lampada">
-        <i class="lightbulb outline icon"></i>
-        Acender Lâmpada
-      </a>
-      <a class="item">
-        <i class="lightbulb icon"></i>
-        Apagar Lâmpada
-      </a>
+</style>
+  <body>
+    <div class="ui three item menu">
+      <a class="item active">Editorials</a>
+      <a class="item">Reviews</a>
+      <a class="item">Upcoming Events</a>
     </div>
-    <br />
-    <br />
-    <div class="ui compact menu">
-      <a class="item">
-        <i class="sun icon"></i>
-        Abrir Cortina
-      </a>
-      <a class="item">
-        <i class="moon icon"></i>
-        Fechar Cortina
-      </a>
-    </div>
-  </div>
-</body>
 
+    <div class="ui raised very padded text container segment">
+      <h2 class="ui header">Olá! O que você deseja?</h2>
+      <div class="ui compact menu">
+        <a class="item" id="acender-lampada">
+          <i class="lightbulb outline icon"></i>
+          Acender Lâmpada
+        </a>
+        <a class="item">
+          <i class="lightbulb icon"></i>
+          Apagar Lâmpada
+        </a>
+      </div>
+      <br />
+      <br />
+      <div class="ui compact menu">
+       <a class="item" href="/abrir-cortina">
+          <i class="sun icon"></i>
+          Abrir Cortina
+        </a>
+        <a class="item" href="/fechar-cortina">
+          <i class="moon icon"></i>
+          Fechar Cortina
+        </a>
+
+      </div>
+      <div class="ui compact menu">
+      <a class="item" href="/trancar-porta">
+      <i class="ph-fill ph-door"></i>
+         Trancar Porta
+       </a>
+       <a class="item" href="/abrir-porta">
+       <i class="ph-fill ph-door-open"></i>
+         Abrir a porta
+       </a>
+       </div>
+
+     </div>
+    </div>
+    
+    <script src="script.js"></script>
+  </body>
 </html>

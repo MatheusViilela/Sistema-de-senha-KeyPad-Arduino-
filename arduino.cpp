@@ -10,6 +10,7 @@ const int passoPino1 = 30;
 const int passoPino2 = 32;
 const int passoPino3 = 34;
 const int passoPino4 = 36;
+const int pinRelay = 6;
 
 const int passosPorRevolucao = 200;
 
@@ -19,6 +20,7 @@ void setup() {
   servoMotor.write(0);
   Serial.begin(9600);
   servoMotor.attach(42);  // Conecta o servo motor ao pino 42 do Arduino
+  pinMode(pinRelay, OUTPUT);
 }
 int contadorAcesso = 0;
 void loop() {
@@ -35,10 +37,16 @@ void loop() {
       contadorAcesso = 0;
     } else if (c == -3) {
       abrirPorta();
-      
+
       contadorAcesso = 0;
     } else if (c == -4) {
       fecharPorta();
+      contadorAcesso = 0;
+    } else if (c == -5) {
+      acenderLuz();
+      contadorAcesso = 0;
+    } else if (c == -6) {
+      apagarLuz();
       contadorAcesso = 0;
     }
   }
@@ -54,7 +62,6 @@ void abrirCortina() {
       break;  // Saia do loop
     }
   }
- 
 }
 void fecharCortina() {
   unsigned long tempoInicial = millis();    // Obtém o tempo inicial em milissegundos
@@ -73,4 +80,11 @@ void abrirPorta() {
 }
 void fecharPorta() {
   servoMotor.write(0);
+}
+
+void acenderLuz() {
+  digitalWrite(pinRelay, HIGH);
+}
+void apagarLuz() {
+  digitalWrite(pinRelay, LOW);
 }
