@@ -8,7 +8,7 @@ const session = require('express-session');
 
 
 
-const port = new SerialPort({ path: 'COM8', baudRate: 9600 });
+const port = new SerialPort({ path: 'COM4', baudRate: 9600 });
 const parser = port.pipe(new ReadlineParser({ delimiter: '\n' }));
 
 function enviarSinal(comando) {
@@ -62,6 +62,7 @@ app.post('/', (req, res) => {
 
 
     if (results.length > 0) {
+      req.session.userId = results[0].id; // Salva o id do usuário na sessão
       req.session.username = username; // Salva o nome de usuário na sessão
       req.session.loggedIn = true; // Marca a sessão como autenticada
       res.redirect('/home');
@@ -71,6 +72,88 @@ app.post('/', (req, res) => {
     }
   });
 });
+app.post('/cadastrar', requireLogin, (req, res) => {
+  const name = req.body.name;
+  const email = req.body.email;
+  const password = req.body.senha;
+  const passwordConfirmation = req.body.senha1;
+
+
+  // Verifique se todos os campos foram preenchidos
+  if (!name || !email || !password) {
+    res.send('<script>alert("Por favor, preencha todos os campos"); window.location.href = "/cadastrar";</script>');
+    return;
+  }
+  if (password != passwordConfirmation) {
+    res.send('<script>alert("As senhas não conferem"); window.location.href = "/cadastrar";</script>');
+    return;
+  }
+
+  // Consulta no banco de dados para verificar se o email já está cadastrado
+  const emailQuery = `SELECT * FROM usuarios WHERE email = ?`;
+  connection.query(emailQuery, [email], (err, results) => {
+    if (err) {
+      console.error('Erro ao executar a consulta:', err);
+      res.send('Erro ao cadastrar usuário');
+      return;
+    }
+
+    if (results.length > 0) {
+      // Caso o email já esteja cadastrado, exiba uma mensagem de erro
+      res.send('<script>alert("O email informado já está cadastrado"); window.location.href = "/cadastrar";</script>');
+    } else {
+      // Insira os dados do novo usuário no banco de dados
+      const insertQuery = `INSERT INTO usuarios (nome, email, senha) VALUES (?, ?, PASSWORD(?))`;
+      connection.query(insertQuery, [name, email, password], (err, results) => {
+        if (err) {
+          console.error('Erro ao cadastrar usuário:', err);
+          res.send('Erro ao cadastrar usuário');
+          return;
+        }
+        // Redirecione para a página de login após o cadastro bem-sucedido
+        res.send('<script>alert("Cadastrado com Sucesso"); window.location.href = "/home";</script>');
+      });
+    }
+  });
+});
+app.get('/encerrar-sessao', (req, res) => {
+  req.session.destroy((err) => {
+    if (err) {
+      console.error('Erro ao encerrar sessão:', err);
+      res.status(500).send('Erro ao encerrar sessão');
+    } else {
+      res.redirect('/'); // Redireciona para a página inicial ou outra página desejada
+    }
+  });
+})
+app.post('/redefinir-senha', requireLogin, (req, res) => {
+  const password = req.body.senha;
+  const passwordConfirmation = req.body.senha1;
+  const userId = req.session.userId;
+
+  console.log(userId);
+  console.log(password);
+  console.log(passwordConfirmation);
+
+  // Verifica se as senhas fornecidas são iguais
+  if (password != passwordConfirmation) {
+    res.send('<script>alert("As senhas não conferem"); window.location.href = "/redefinir-senha";</script>');
+    return;
+  }
+
+  // Executa a consulta para atualizar a senha do usuário no banco de dados
+  const query = 'UPDATE usuarios SET senha = PASSWORD(?) WHERE id = ?';
+  connection.query(query, [password, userId], (err, results) => {
+    if (err) {
+      console.error('Erro ao executar a consulta:', err);
+      res.send('Erro ao redefinir a senha');
+      return;
+    }
+
+    res.send('<script>alert("Senha alterada com sucesso!"); window.location.href = "/home";</script>');
+  });
+});
+
 app.get('/', (req, res) => {
   res.send(`<!DOCTYPE html>
   <html>
@@ -86,7 +169,7 @@ app.get('/', (req, res) => {
         <div class="col-md-6">
           <div class="card mt-5">
             <div class="card-body">
-              <h2 class="text-center">Formulário de Login</h2>
+              <h2 class="text-center">Faça seu login para acessar sua casa!</h2>
               <form>
                 <div class="form-group">
                   <label for="username">Usuário:</label>
@@ -137,19 +220,40 @@ app.get('/home', requireLogin, (req, res) => {
       </head>
       <style>
       html,
-body {
-    text-align: center !important;
-    align-items: center !important;
-    display: flex !important;
-    margin-left: auto !important;
-    margin-right: auto !important;
-    background-color: rgb(241, 93, 39) !important;
-}
+      body {
+        text-align: center !important;
+        align-items: center !important;
+        display: flex !important;
+        margin-left: auto !important;
+        margin-right: auto !important;
+        background-color:gray !important; 
+        };
 ui{
   border-radius: 40px !important;
 }
+#navbar {
+  position: fixed;
+  top: 0%;
+  display: flex, inline;
+  align-items: center;
+  left: 35%;
+  }
 </style>
       <body>
+      <div class="ui compact menu" id="navbar">
+      <div class="header item">
+        Seja bem vindo!
+      </div>
+      <a class="item" href="/redefinir-senha">
+        Alterar senha
+      </a>
+      <a class="item" href="/cadastrar">
+        Cadastrar novo usuário
+      </a>
+      <a class="item" href="/encerrar-sessao">
+        Sair
+      </a>
+    </div>
         <div class="ui raised very padded text container segment">
           <h2 class="ui header">Olá! O que você deseja?</h2>
           <div class="ui compact menu">
@@ -165,16 +269,17 @@ ui{
           <br />
           <br />
           <div class="ui compact menu">
-           <a class="item" href="/abrir-cortina">
-              <i class="sun icon"></i>
-              Abrir Cortina
+           <a class="item" href="/ligar-ventilador">
+              <i class="ph-fill ph-fan"></i>
+             Ligar Ventilador
             </a>
-            <a class="item" href="/fechar-cortina">
-              <i class="moon icon"></i>
-              Fechar Cortina
-            </a>
-
           </div>
+          <div class="ui compact menu">
+          <a class="item" href="/ligar-exaustor">
+             <i class="ph-fill ph-fan"></i>
+            Ligar Exaustor
+           </a>
+         </div>
           <div class="ui compact menu">
           <a class="item" href="/trancar-porta">
           <i class="ph-fill ph-door"></i>
@@ -194,13 +299,178 @@ ui{
     </html>
   `);
 });
-app.get('/abrir-cortina', (req, res) => {
-  enviarSinal('-1');
-  res.send('<script>alert("Abrindo cortina"); window.location.href = "/home";</script>');
+
+app.get('/cadastrar', requireLogin, (req, res) => {
+  res.send(`
+  <!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8" />
+    <meta http-equiv="X-UA-Compatible" content="IE=edge" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Quarto Inteligente</title>
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/semantic-ui@2.5.0/dist/semantic.min.css" />
+    <script src="https://code.jquery.com/jquery-3.1.1.min.js"
+        integrity="sha256-hVVnYaiADRTO2PzUGmuLJr8BLUSjGIZsDYGmIJLv2b8=" crossorigin="anonymous"></script>
+    <script src="https://cdn.jsdelivr.net/npm/semantic-ui@2.5.0/dist/semantic.min.js"></script>
+    <script src="https://unpkg.com/@phosphor-icons/web"></script>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.0.2/dist/css/bootstrap.min.css" rel="stylesheet"
+        integrity="sha384-EVSTQN3/azprG1Anm3QDgpJLIm9Nao0Yz1ztcQTwFspd3yD65VohhpuuCOmLASjC" crossorigin="anonymous">
+        <script src="https://unpkg.com/@phosphor-icons/web"></script>
+</head>
+<style>
+    html,
+    body {
+        align-items: center !important;
+        display: flex !important;
+        margin-left: auto !important;
+        margin-right: auto !important;
+
+    }
+</style>
+
+<body>
+    <form method="POST" action="/cadastrar">
+    <div class="">
+        <h1 style=" text-align: center;">Cadastro de Usuário</h1>
+        <div class="card-body shadow" style="
+        width: 80vw;">
+            <div class="form-group row">
+                <div class="col-sm-6 mt-3 mb-sm-0">
+                    <label for="nome">Nome Completo</label>
+                    <input id="name" class="form-control" type="text" name="name" placeholder="Digite o nome completo">
+                </div>
+                <div class="col-sm-6 mt-3 mb-sm-0">
+                    <label for="">Email</label>
+                    <input id="email" class="form-control" type="email" name="email" placeholder="Digite o email">
+                </div>
+
+            </div>
+            <div class="form-group row">
+                <div class="col-sm-6 mt-3 mb-sm-0">
+                    <label for="senha1">Digite sua senha</label>
+                    <input id="senha1" class="form-control" type="password" name="senha1"
+                        placeholder="Digite a sua senha">
+                </div>
+                <div class="col-sm-6 mt-3 mb-sm-0">
+                    <label for="senha">Confirme sua senha</label>
+                    <input class="form-control" id="senha" type="password" name="senha" placeholder="Confirme sua senha">
+                </div>
+
+            </div>
+            <div class="col-sm12 mt-5">
+                <div class="d-flex justify-content-center">
+                    <button type="submit" value="submit" class="btn btn-success">Cadastrar</button>
+                    </div>
+                    <a href="/home" class="btn btn-primary"><i class="ph-fill ph-rewind"></i> Voltar</a>
+            </div>
+        </div>
+    </div>
+</form>
+</body>
+
+</html>
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.0.2/dist/js/bootstrap.bundle.min.js"
+    integrity="sha384-MrcW6ZMFYlzcLA8Nl+NtUVF0sA7MsXsP1UyJoMp4YLEuNSfAP+JcXn/tWtIaxVXM"
+    crossorigin="anonymous"></script>
+<script src="https://cdn.jsdelivr.net/npm/@popperjs/core@2.9.2/dist/umd/popper.min.js"
+    integrity="sha384-IQsoLXl5PILFhosVNubq5LC7Qb9DXgDA9i+tQ8Zj3iwWAwPtgFTxbJ8NT4GN1R8p"
+    crossorigin="anonymous"></script>
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.0.2/dist/js/bootstrap.min.js"
+    integrity="sha384-cVKIPhGWiC2Al4u+LWgxfKTRIcfu0JTxR+EQDz/bgldoEyl4H0zUF0QKbrJ0EcQF"
+    crossorigin="anonymous"></script>
+  `);
 });
-app.get('/fechar-cortina', (req, res) => {
+app.get('/redefinir-senha', requireLogin, (req, res) => {
+  res.send(`
+  <!DOCTYPE html>
+  <html lang="en">
+  
+  <head>
+      <meta charset="UTF-8" />
+      <meta http-equiv="X-UA-Compatible" content="IE=edge" />
+      <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+      <title>Quarto Inteligente</title>
+      <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/semantic-ui@2.5.0/dist/semantic.min.css" />
+      <script src="https://code.jquery.com/jquery-3.1.1.min.js"
+          integrity="sha256-hVVnYaiADRTO2PzUGmuLJr8BLUSjGIZsDYGmIJLv2b8=" crossorigin="anonymous"></script>
+      <script src="https://cdn.jsdelivr.net/npm/semantic-ui@2.5.0/dist/semantic.min.js"></script>
+      <script src="https://unpkg.com/@phosphor-icons/web"></script>
+      <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.0.2/dist/css/bootstrap.min.css" rel="stylesheet"
+          integrity="sha384-EVSTQN3/azprG1Anm3QDgpJLIm9Nao0Yz1ztcQTwFspd3yD65VohhpuuCOmLASjC" crossorigin="anonymous">
+  </head>
+  <style>
+      html,
+      body {
+          align-items: center !important;
+          display: flex !important;
+          margin-left: auto !important;
+          margin-right: auto !important;
+  
+      }
+  </style>
+  
+  <body>
+      <form method="POST" action="/redefinir-senha">
+          <div class="">
+              <h1 style=" text-align: center;">Redefinir Senha</h1>
+              <div class="card-body shadow" style="
+          width: 80vw;">
+                  <div class="form-group row">
+                      <div class="col-sm-6 mt-3 mb-sm-0">
+                          <label for="senha1">Digite sua nova senha</label>
+                          <input id="senha1" class="form-control" type="password" name="senha1"
+                              placeholder="Digite a sua senha">
+                      </div>
+                      <div class="col-sm-6 mt-3 mb-sm-0">
+                          <label for="senha">Confirme sua nova senha</label>
+                          <input class="form-control" id="senha" type="password" name="senha"
+                              placeholder="Confirme sua senha">
+                      </div>
+  
+                  </div>
+                  <div class="col-sm12 mt-5">
+                      <div class="d-flex justify-content-center">
+                          <button type="submit" value="submit" class="btn btn-success">Alterar senha</button>
+                      </div>
+                      <a href="/home" class="btn btn-primary"><i class="ph-fill ph-rewind"></i> Voltar</a>
+  
+                  </div>
+              </div>
+          </div>
+      </form>
+  </body>
+  
+  </html>
+  <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.0.2/dist/js/bootstrap.bundle.min.js"
+      integrity="sha384-MrcW6ZMFYlzcLA8Nl+NtUVF0sA7MsXsP1UyJoMp4YLEuNSfAP+JcXn/tWtIaxVXM"
+      crossorigin="anonymous"></script>
+  <script src="https://cdn.jsdelivr.net/npm/@popperjs/core@2.9.2/dist/umd/popper.min.js"
+      integrity="sha384-IQsoLXl5PILFhosVNubq5LC7Qb9DXgDA9i+tQ8Zj3iwWAwPtgFTxbJ8NT4GN1R8p"
+      crossorigin="anonymous"></script>
+  <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.0.2/dist/js/bootstrap.min.js"
+      integrity="sha384-cVKIPhGWiC2Al4u+LWgxfKTRIcfu0JTxR+EQDz/bgldoEyl4H0zUF0QKbrJ0EcQF"
+      crossorigin="anonymous"></script>
+  `);
+});
+app.get('/encerrar-sessao', (req, res) => {
+  req.session.destroy((err) => {
+    if (err) {
+      console.error('Erro ao encerrar sessão:', err);
+      res.status(500).send('Erro ao encerrar sessão');
+    } else {
+      res.redirect('/'); // Redireciona para a página de login
+    }
+  });
+});
+app.get('/ligar-ventilador', (req, res) => {
+  enviarSinal('-1');
+  res.send('<script>alert("Ventilador Ligado"); window.location.href = "/home";</script>');
+});
+app.get('/ligar-exaustor', (req, res) => {
   enviarSinal('-2');
-  res.send('<script>alert("Fechando cortina"); window.location.href = "/home";</script>');
+  res.send('<script>alert("Exaustor ligado"); window.location.href = "/home";</script>');
 });
 app.get('/abrir-porta', (req, res) => {
   enviarSinal('-3');
